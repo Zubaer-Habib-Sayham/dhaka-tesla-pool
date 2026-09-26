@@ -4,6 +4,7 @@ import healthRoutes from "./routes/health.routes.js";
 import databaseRoutes from "./routes/database.routes.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 import authRoutes from "./routes/auth.routes.js";
+import zoneRoutes from "./routes/zone.routes.js";
 
 const app = express();
 
@@ -13,6 +14,7 @@ app.use(express.json());
 app.use("/api/health", healthRoutes);
 app.use("/api/health/database", databaseRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/zones", zoneRoutes);
 
 app.use(errorHandler);
 
