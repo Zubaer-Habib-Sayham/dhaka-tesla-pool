@@ -12,7 +12,7 @@ A ride-pooling MVP built with PostgreSQL, Express.js, React, and Node.js.
 
 See:
 
-- [Architecture](docs/Dhaka-Tesla-Pool_Archiitecture_Diagram.png)
+- [Architecture](docs/Dhaka-Tesla-Pool_Architecture_Diagram.png)
 - [ERD](docs/erd.md)
 
 ## Tech Stack
