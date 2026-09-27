@@ -4,7 +4,12 @@ import {
 } from "../validators/ride.validator.js";
 import { findZoneById } from "../repositories/zone.repository.js";
 import { calculateFare } from "../services/fare.service.js";
-import { requestRide } from "../services/ride.service.js";
+import {
+  requestRide,
+  getPassengerRides,
+  getPassengerRide,
+  cancelPassengerRide,
+} from "../services/ride.service.js";
 
 export const estimateFare = async (req, res, next) => {
   try {
@@ -47,6 +52,61 @@ export const createRideRequest = async (req, res, next) => {
     });
 
     res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getMyRides = async (req, res, next) => {
+  try {
+    const rides = await getPassengerRides(req.user.userId);
+
+    res.status(200).json({
+      rides,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getMyRide = async (req, res, next) => {
+  try {
+    const rideId = Number(req.params.id);
+
+    if (!Number.isInteger(rideId) || rideId <= 0) {
+      const error = new Error("Invalid ride ID.");
+      error.statusCode = 400;
+      error.code = "INVALID_RIDE_ID";
+      throw error;
+    }
+
+    const result = await getPassengerRide(rideId, req.user.userId);
+
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const cancelRide = async (req, res, next) => {
+  try {
+    const rideId = Number(req.params.id);
+
+    if (!Number.isInteger(rideId) || rideId <= 0) {
+      const error = new Error("Invalid ride ID.");
+      error.statusCode = 400;
+      error.code = "INVALID_RIDE_ID";
+      throw error;
+    }
+
+    const ride = await cancelPassengerRide({
+      rideId,
+      passengerId: req.user.userId,
+    });
+
+    res.status(200).json({
+      ride,
+    });
   } catch (error) {
     next(error);
   }

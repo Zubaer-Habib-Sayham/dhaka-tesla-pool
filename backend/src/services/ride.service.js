@@ -4,6 +4,13 @@ import {
 } from "../repositories/ride.repository.js";
 import { findZoneById } from "../repositories/zone.repository.js";
 import { calculateFare } from "./fare.service.js";
+import {
+  findRidesByPassengerId,
+  findRideByIdAndPassengerId,
+  updateRideStatus,
+  createStatusHistoryEntry,
+  findRideStatusHistory,
+} from "../repositories/ride.repository.js";
 
 export const requestRide = async ({
   passengerId,
@@ -50,4 +57,58 @@ export const requestRide = async ({
     destinationZone,
     fare,
   };
+};
+
+export const getPassengerRides = async (passengerId) => {
+  return findRidesByPassengerId(passengerId);
+};
+
+export const getPassengerRide = async (rideId, passengerId) => {
+  const ride = await findRideByIdAndPassengerId(rideId, passengerId);
+
+  if (!ride) {
+    const error = new Error("Ride not found.");
+    error.statusCode = 404;
+    error.code = "RIDE_NOT_FOUND";
+    throw error;
+  }
+
+  const history = await findRideStatusHistory(rideId);
+
+  return {
+    ride,
+    history,
+  };
+};
+
+export const cancelPassengerRide = async ({ rideId, passengerId }) => {
+  const ride = await findRideByIdAndPassengerId(rideId, passengerId);
+
+  if (!ride) {
+    const error = new Error("Ride not found.");
+    error.statusCode = 404;
+    error.code = "RIDE_NOT_FOUND";
+    throw error;
+  }
+
+  if (!["REQUESTED", "MATCHED"].includes(ride.status)) {
+    const error = new Error("This ride can no longer be cancelled.");
+
+    error.statusCode = 409;
+    error.code = "RIDE_CANNOT_BE_CANCELLED";
+    throw error;
+  }
+
+  const previousStatus = ride.status;
+
+  const updatedRide = await updateRideStatus(rideId, "CANCELLED");
+
+  await createStatusHistoryEntry({
+    rideId,
+    fromStatus: previousStatus,
+    toStatus: "CANCELLED",
+    changedBy: passengerId,
+  });
+
+  return updatedRide;
 };
