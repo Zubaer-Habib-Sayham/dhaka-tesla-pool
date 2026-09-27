@@ -16,7 +16,7 @@ const formatDate = (date) => {
   });
 };
 
-function PassengerDashboard({ onLogout, onRequestRide }) {
+function PassengerDashboard({ onLogout, onRequestRide, onRideClick }) {
   const user = getCurrentUser();
 
   const [rides, setRides] = useState([]);
@@ -107,7 +107,11 @@ function PassengerDashboard({ onLogout, onRequestRide }) {
           {!loading && !error && rides.length > 0 && (
             <div className="ride-list">
               {rides.map((ride) => (
-                <article className="ride-card" key={ride.id}>
+                <button
+                  className="ride-card"
+                  key={ride.id}
+                  type="button"
+                  onClick={() => onRideClick(ride)}>
                   <div className="ride-route">
                     <div>
                       <span>Pickup</span>
@@ -134,7 +138,7 @@ function PassengerDashboard({ onLogout, onRequestRide }) {
                       {formatStatus(ride.status)}
                     </span>
                   </div>
-                </article>
+                </button>
               ))}
             </div>
           )}

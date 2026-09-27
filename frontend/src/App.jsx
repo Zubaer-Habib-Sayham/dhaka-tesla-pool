@@ -1,11 +1,20 @@
 import { useState } from "react";
 import { loginPassenger, registerPassenger } from "./services/api";
-import { getCurrentUser, isAuthenticated, saveAuth } from "./services/auth";
+import {
+  getCurrentUser,
+  isAuthenticated,
+  saveAuth,
+  logout,
+} from "./services/auth";
 import PassengerDashboard from "./components/PassengerDashboard";
+import RideRequest from "./components/RideRequest";
+import RideDetails from "./components/RideDetails";
 
 function App() {
   const [isLogin, setIsLogin] = useState(true);
   const [user, setUser] = useState(getCurrentUser());
+  const [page, setPage] = useState("dashboard");
+  const [createdRide, setCreatedRide] = useState(null);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -34,6 +43,7 @@ function App() {
 
       saveAuth(result);
       setUser(result.user);
+      setPage("dashboard");
     } catch (error) {
       setError(error.message);
     } finally {
@@ -42,12 +52,47 @@ function App() {
   };
 
   const handleLogout = () => {
+    logout();
     setUser(null);
+    setPage("dashboard");
+    setCreatedRide(null);
   };
 
   if (user && isAuthenticated()) {
+    if (page === "request") {
+      return (
+        <RideRequest
+          onBack={() => setPage("dashboard")}
+          onRideCreated={(ride) => {
+            setCreatedRide(ride);
+            setPage("ride");
+          }}
+        />
+      );
+    }
+
+    if (page === "ride" && createdRide) {
+      return (
+        <RideDetails
+          rideId={createdRide.id}
+          initialRide={createdRide}
+          onBack={() => {
+            setCreatedRide(null);
+            setPage("dashboard");
+          }}
+        />
+      );
+    }
+
     return (
-      <PassengerDashboard onLogout={handleLogout} onRequestRide={() => {}} />
+      <PassengerDashboard
+        onLogout={handleLogout}
+        onRequestRide={() => setPage("request")}
+        onRideClick={(ride) => {
+          setCreatedRide(ride);
+          setPage("ride");
+        }}
+      />
     );
   }
 
