@@ -1,7 +1,7 @@
 const API_BASE_URL = "http://localhost:5000/api";
 
 const request = async (endpoint, options = {}) => {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("dhaka_tesla_pool_token");
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,

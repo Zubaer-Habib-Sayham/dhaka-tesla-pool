@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { loginPassenger, registerPassenger } from "./services/api";
 import { getCurrentUser, isAuthenticated, saveAuth } from "./services/auth";
+import PassengerDashboard from "./components/PassengerDashboard";
 
 function App() {
   const [isLogin, setIsLogin] = useState(true);
+  const [user, setUser] = useState(getCurrentUser());
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [user, setUser] = useState(getCurrentUser());
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -38,65 +41,82 @@ function App() {
     }
   };
 
+  const handleLogout = () => {
+    setUser(null);
+  };
+
   if (user && isAuthenticated()) {
     return (
-      <main>
-        <h1>Dhaka Tesla Pool</h1>
-        <p>Welcome, {user.name}.</p>
-        <p>Role: {user.role}</p>
-      </main>
+      <PassengerDashboard onLogout={handleLogout} onRequestRide={() => {}} />
     );
   }
 
   return (
-    <main>
-      <h1>Dhaka Tesla Pool</h1>
-      <p>Share a seat. Split the fare. Survive Dhaka traffic.</p>
+    <main className="auth-page">
+      <section className="auth-card">
+        <div className="auth-heading">
+          <p className="brand">Dhaka Tesla Pool</p>
 
-      <form onSubmit={handleSubmit}>
-        {!isLogin && (
-          <input
-            type="text"
-            placeholder="Name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            required
-          />
-        )}
+          <h1>{isLogin ? "Welcome back." : "Start sharing your ride."}</h1>
 
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          required
-        />
+          <p>Share a seat. Split the fare. Survive Dhaka traffic.</p>
+        </div>
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          required
-        />
+        <form onSubmit={handleSubmit} className="auth-form">
+          {!isLogin && (
+            <label>
+              Name
+              <input
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Your name"
+                required
+              />
+            </label>
+          )}
 
-        {error && <p>{error}</p>}
+          <label>
+            Email
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="you@example.com"
+              required
+            />
+          </label>
 
-        <button type="submit" disabled={loading}>
-          {loading ? "Please wait..." : isLogin ? "Log in" : "Create account"}
+          <label>
+            Password
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="At least 8 characters"
+              required
+            />
+          </label>
+
+          {error && <div className="form-error">{error}</div>}
+
+          <button className="primary-button" type="submit" disabled={loading}>
+            {loading ? "Please wait..." : isLogin ? "Log in" : "Create account"}
+          </button>
+        </form>
+
+        <button
+          className="switch-auth"
+          type="button"
+          onClick={() => {
+            setIsLogin(!isLogin);
+            setError("");
+          }}>
+          {isLogin
+            ? "Don't have an account? Create one"
+            : "Already have an account? Log in"}
         </button>
-      </form>
-
-      <button
-        type="button"
-        onClick={() => {
-          setIsLogin(!isLogin);
-          setError("");
-        }}>
-        {isLogin
-          ? "Create a passenger account"
-          : "Already have an account? Log in"}
-      </button>
+      </section>
     </main>
   );
 }
