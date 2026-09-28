@@ -11,6 +11,7 @@ import {
   createStatusHistoryEntry,
   findRideStatusHistory,
 } from "../repositories/ride.repository.js";
+import { validateRideTransition } from "./ride-state.service.js";
 
 export const requestRide = async ({
   passengerId,
@@ -91,24 +92,19 @@ export const cancelPassengerRide = async ({ rideId, passengerId }) => {
     throw error;
   }
 
-  if (!["REQUESTED", "MATCHED"].includes(ride.status)) {
-    const error = new Error("This ride can no longer be cancelled.");
+  validateRideTransition(ride.status, "CANCELLED");
 
-    error.statusCode = 409;
-    error.code = "RIDE_CANNOT_BE_CANCELLED";
-    throw error;
-  }
-
-  const previousStatus = ride.status;
-
-  const updatedRide = await updateRideStatus(rideId, "CANCELLED");
+  await updateRideStatus(rideId, "CANCELLED");
 
   await createStatusHistoryEntry({
     rideId,
-    fromStatus: previousStatus,
+    fromStatus: ride.status,
     toStatus: "CANCELLED",
     changedBy: passengerId,
   });
 
-  return updatedRide;
+  return {
+    ...ride,
+    status: "CANCELLED",
+  };
 };
