@@ -2,6 +2,7 @@ import {
   findDriverWithTesla,
   updateTeslaStatus,
   findRequestedRides,
+  acceptRideForDriver,
 } from "../repositories/driver.repository.js";
 
 const ensureDriver = async (driverId) => {
@@ -57,4 +58,11 @@ export const setDriverOffline = async (driverId) => {
 
 export const getDriverRequests = async () => {
   return findRequestedRides();
+};
+
+export const acceptRide = async ({ rideId, driverId }) => {
+  return acceptRideForDriver({
+    rideId,
+    driverId,
+  });
 };

@@ -6,6 +6,7 @@ import {
   goOnline,
   goOffline,
   getRequests,
+  accept,
 } from "../controllers/driver.controller.js";
 
 const router = Router();
@@ -17,5 +18,6 @@ router.get("/me", getMe);
 router.post("/online", goOnline);
 router.post("/offline", goOffline);
 router.get("/requests", getRequests);
+router.post("/rides/:id/accept", accept);
 
 export default router;

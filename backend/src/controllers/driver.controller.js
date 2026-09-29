@@ -3,6 +3,7 @@ import {
   setDriverOnline,
   setDriverOffline,
   getDriverRequests,
+  acceptRide,
 } from "../services/driver.service.js";
 
 export const getMe = async (req, res, next) => {
@@ -50,6 +51,19 @@ export const getRequests = async (req, res, next) => {
     res.status(200).json({
       rides,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const accept = async (req, res, next) => {
+  try {
+    const result = await acceptRide({
+      rideId: req.params.id,
+      driverId: req.user.userId,
+    });
+
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }
