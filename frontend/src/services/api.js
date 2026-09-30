@@ -1,5 +1,8 @@
 import { getToken, getCurrentUser, saveAuth } from "./auth";
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+// Render supplies the API's public origin; local development keeps port 5000.
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.VITE_API_ORIGIN ? `${import.meta.env.VITE_API_ORIGIN.replace(/\/+$/, "")}/api` : "http://localhost:5000/api"))
+  .replace(/\/+$/, "");
 const DEMO_KEY = "dhaka_tesla_pool_demo_rides_v1";
 const active = (ride) => !["COMPLETED", "CANCELLED"].includes(ride.status);
 const demoZones = [
@@ -114,8 +117,12 @@ const request = async (endpoint, options = {}) => {
   let response;
   try {
     response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...options.headers } });
-  } catch { throw new Error("Cannot reach the server. Check that the backend is running on port 5000."); }
-  const data = await response.json();
+  } catch { throw new Error(import.meta.env.PROD
+    ? "Cannot reach the ride service. It may be waking up; try again in a minute."
+    : "Cannot reach the server. Check that the backend is running on port 5000."); }
+  let data;
+  try { data = await response.json(); }
+  catch { throw new Error("The ride service is starting up or temporarily unavailable. Try again in a minute."); }
   if (!response.ok) {
     const fields = Object.values(data.error?.fields || {}).flat().join(" ");
     const error = new Error(fields || data.error?.message || "Something went wrong.");

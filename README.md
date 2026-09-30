@@ -2,6 +2,14 @@
 
 Share a seat. Split the fare. Survive Dhaka traffic.
 
+**Live website:** [Dhaka Tesla Pool](https://dhaka-tesla-pool-d563.onrender.com/)
+
+Hosted on Render's free static-site and API plans with Neon PostgreSQL.
+Click **Test the app** for an instant demonstration, or sign up as a passenger
+or driver to use the live database. The free API may take about a minute to wake
+up after inactivity; open the site before recording a live account walkthrough.
+Render deploys from the `codex/free-public-deployment` branch.
+
 A ride-pooling MVP built with PostgreSQL, Express.js, React, and Node.js.
 
 ## Status
@@ -107,3 +115,10 @@ The test dashboard simulates rides locally; use real accounts for database-backe
 testing. TeslaPay remains simulated and payment status is displayed as stored.
 Polling provides status updates without WebSockets. Existing Docker Compose
 configuration runs the database; frontend and backend still run separately.
+
+## Free public hosting
+
+See [deployment instructions](docs/deployment.md) for Render's free frontend/API
+hosting and a Neon Free PostgreSQL database. The root `render.yaml` creates and
+connects the two Render services. Local development keeps the same commands and
+defaults; hosted frontend builds use `VITE_API_ORIGIN` or `VITE_API_BASE_URL`.
