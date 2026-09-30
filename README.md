@@ -107,3 +107,10 @@ The test dashboard simulates rides locally; use real accounts for database-backe
 testing. TeslaPay remains simulated and payment status is displayed as stored.
 Polling provides status updates without WebSockets. Existing Docker Compose
 configuration runs the database; frontend and backend still run separately.
+
+## Free public hosting
+
+See [deployment instructions](docs/deployment.md) for Render's free frontend/API
+hosting and a Neon Free PostgreSQL database. The root `render.yaml` creates and
+connects the two Render services. Local development keeps the same commands and
+defaults; hosted frontend builds use `VITE_API_ORIGIN` or `VITE_API_BASE_URL`.

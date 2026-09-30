@@ -1,0 +1,41 @@
+# Free static frontend + Free Node API. PostgreSQL is hosted separately on Neon.
+# During Blueprint creation, paste the Neon connection string into DATABASE_URL.
+services:
+  - type: web
+    name: dhaka-tesla-pool-api
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health/database
+    envVars:
+      - key: NODE_VERSION
+        value: 24.21.0
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 1d
+  - type: web
+    name: dhaka-tesla-pool
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: NODE_VERSION
+        value: 24.21.0
+      - key: VITE_API_ORIGIN
+        fromService:
+          type: web
+          name: dhaka-tesla-pool-api
+          envVarKey: RENDER_EXTERNAL_URL
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
