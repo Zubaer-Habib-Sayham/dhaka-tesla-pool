@@ -1,16 +1,15 @@
 import {
   createRide,
   createRideStatusHistory,
-} from "../repositories/ride.repository.js";
-import { findZoneById } from "../repositories/zone.repository.js";
-import { calculateFare } from "./fare.service.js";
-import {
   findRidesByPassengerId,
   findRideByIdAndPassengerId,
   updateRideStatus,
   createStatusHistoryEntry,
   findRideStatusHistory,
 } from "../repositories/ride.repository.js";
+
+import { findZoneById } from "../repositories/zone.repository.js";
+import { calculateFare } from "./fare.service.js";
 import { validateRideTransition } from "./ride-state.service.js";
 
 export const requestRide = async ({
@@ -18,6 +17,7 @@ export const requestRide = async ({
   pickupZoneId,
   destinationZoneId,
   requestedSeats,
+  shareRide,
   paymentMethod,
 }) => {
   const pickupZone = await findZoneById(pickupZoneId);
@@ -34,7 +34,7 @@ export const requestRide = async ({
     pickupZone,
     destinationZone,
     requestedSeats,
-    isPooled: false,
+    shareRide,
   });
 
   const ride = await createRide({
@@ -42,6 +42,7 @@ export const requestRide = async ({
     pickupZoneId,
     destinationZoneId,
     requestedSeats,
+    shareRide,
     fareAmount: fare.fareAmount,
     paymentMethod,
   });

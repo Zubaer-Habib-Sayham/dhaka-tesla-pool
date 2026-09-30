@@ -5,6 +5,7 @@ export const createRide = async ({
   pickupZoneId,
   destinationZoneId,
   requestedSeats,
+  shareRide,
   fareAmount,
   paymentMethod,
 }) => {
@@ -14,18 +15,20 @@ export const createRide = async ({
       pickup_zone_id,
       destination_zone_id,
       requested_seats,
+      share_ride,
       status,
       fare_amount,
       payment_method,
       payment_status
     )
-    VALUES ($1, $2, $3, $4, 'REQUESTED', $5, $6, 'PENDING')
+    VALUES ($1, $2, $3, $4, $5, 'REQUESTED', $6, $7, 'PENDING')
     RETURNING
       id,
       passenger_id,
       pickup_zone_id,
       destination_zone_id,
       requested_seats,
+      share_ride,
       status,
       fare_amount,
       payment_method,
@@ -37,6 +40,7 @@ export const createRide = async ({
       pickupZoneId,
       destinationZoneId,
       requestedSeats,
+      shareRide,
       fareAmount,
       paymentMethod,
     ],
@@ -70,6 +74,7 @@ export const findRidesByPassengerId = async (passengerId) => {
     `SELECT
       r.id,
       r.requested_seats,
+      r.share_ride,
       r.status,
       r.fare_amount,
       r.payment_method,
@@ -105,6 +110,7 @@ export const findRideByIdAndPassengerId = async (rideId, passengerId) => {
       r.id,
       r.passenger_id,
       r.requested_seats,
+      r.share_ride,
       r.status,
       r.fare_amount,
       r.payment_method,
@@ -150,6 +156,7 @@ export const updateRideStatus = async (rideId, status) => {
        pickup_zone_id,
        destination_zone_id,
        requested_seats,
+       share_ride,
        status,
        fare_amount,
        payment_method,

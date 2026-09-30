@@ -42,17 +42,24 @@ export const findRequestedRides = async () => {
        u.name AS passenger_name,
        r.pickup_zone_id,
        pickup.name AS pickup_zone_name,
+       pickup.latitude AS pickup_latitude,
+       pickup.longitude AS pickup_longitude,
        r.destination_zone_id,
        destination.name AS destination_zone_name,
+       destination.latitude AS destination_latitude,
+       destination.longitude AS destination_longitude,
        r.requested_seats,
+       r.share_ride,
        r.fare_amount,
        r.payment_method,
        r.payment_status,
        r.status,
        r.created_at
      FROM rides r
-     JOIN users u ON u.id = r.passenger_id
-     JOIN zones pickup ON pickup.id = r.pickup_zone_id
+     JOIN users u
+       ON u.id = r.passenger_id
+     JOIN zones pickup
+       ON pickup.id = r.pickup_zone_id
      JOIN zones destination
        ON destination.id = r.destination_zone_id
      WHERE r.status = 'REQUESTED'
