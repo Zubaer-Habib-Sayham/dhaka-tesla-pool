@@ -40,6 +40,7 @@ CREATE TABLE rides (
     pickup_zone_id BIGINT NOT NULL REFERENCES zones(id),
     destination_zone_id BIGINT NOT NULL REFERENCES zones(id),
     requested_seats INTEGER NOT NULL,
+    share_ride BOOLEAN NOT NULL DEFAULT TRUE,
     status VARCHAR(30) NOT NULL,
     fare_amount INTEGER NOT NULL,
     payment_method VARCHAR(20) NOT NULL,
@@ -123,3 +124,16 @@ CREATE INDEX idx_pool_members_pool_id
 
 CREATE INDEX idx_ride_status_history_ride_id
     ON ride_status_history(ride_id);
+
+CREATE UNIQUE INDEX one_active_ride_per_passenger
+ON rides (passenger_id)
+WHERE status IN (
+    'REQUESTED',
+    'MATCHED',
+    'DRIVER_ARRIVED',
+    'STARTED'
+);
+
+CREATE UNIQUE INDEX one_active_pool_per_tesla
+ON pools (tesla_id)
+WHERE status = 'ACTIVE';
