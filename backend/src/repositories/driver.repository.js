@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import { areRoutesCompatible } from "../services/route-matching.service.js";
 
 export const findDriverWithTesla = async (driverId) => {
   const result = await pool.query(
@@ -49,7 +50,7 @@ export const findRequestedRides = async () => {
        destination.latitude AS destination_latitude,
        destination.longitude AS destination_longitude,
        r.requested_seats,
-       r.share_ride,
+       r.share_ride AS "shareRide",
        r.fare_amount,
        r.payment_method,
        r.payment_status,
@@ -77,6 +78,7 @@ export const findRideForDriver = async (rideId, driverId) => {
        r.pickup_zone_id,
        r.destination_zone_id,
        r.requested_seats,
+       r.share_ride AS "shareRide",
        r.fare_amount,
        r.payment_method,
        r.payment_status,
@@ -85,9 +87,12 @@ export const findRideForDriver = async (rideId, driverId) => {
        t.capacity,
        p.id AS pool_id
      FROM rides r
-     JOIN pool_members pm ON pm.ride_id = r.id
-     JOIN pools p ON p.id = pm.pool_id
-     JOIN teslas t ON t.id = p.tesla_id
+     JOIN pool_members pm
+       ON pm.ride_id = r.id
+     JOIN pools p
+       ON p.id = pm.pool_id
+     JOIN teslas t
+       ON t.id = p.tesla_id
      WHERE r.id = $1
        AND t.driver_id = $2`,
     [rideId, driverId],
@@ -193,11 +198,20 @@ export const acceptRideForDriver = async ({ rideId, driverId }) => {
          r.pickup_zone_id,
          r.destination_zone_id,
          r.requested_seats,
+         r.share_ride AS "shareRide",
          r.status,
          r.fare_amount,
          r.payment_method,
-         r.payment_status
+         r.payment_status,
+         pickup.latitude AS "pickupLatitude",
+         pickup.longitude AS "pickupLongitude",
+         destination.latitude AS "destinationLatitude",
+         destination.longitude AS "destinationLongitude"
        FROM rides r
+       JOIN zones pickup
+         ON pickup.id = r.pickup_zone_id
+       JOIN zones destination
+         ON destination.id = r.destination_zone_id
        WHERE r.id = $1
        FOR UPDATE`,
       [rideId],
@@ -226,7 +240,9 @@ export const acceptRideForDriver = async ({ rideId, driverId }) => {
     const poolResult = await client.query(
       `SELECT
          p.id,
-         p.status
+         p.tesla_id,
+         p.status,
+         p.created_at
        FROM pools p
        WHERE p.tesla_id = $1
          AND p.status = 'ACTIVE'
@@ -236,19 +252,73 @@ export const acceptRideForDriver = async ({ rideId, driverId }) => {
       [tesla.id],
     );
 
-    let activePool;
+    let activePool = null;
 
-    if (poolResult.rowCount === 0) {
+    if (poolResult.rowCount > 0) {
+      activePool = poolResult.rows[0];
+
+      const memberResult = await client.query(
+        `SELECT
+           r.id,
+           r.share_ride AS "shareRide",
+           pickup.latitude AS "pickupLatitude",
+           pickup.longitude AS "pickupLongitude",
+           destination.latitude AS "destinationLatitude",
+           destination.longitude AS "destinationLongitude"
+         FROM pool_members pm
+         JOIN rides r
+           ON r.id = pm.ride_id
+         JOIN zones pickup
+           ON pickup.id = r.pickup_zone_id
+         JOIN zones destination
+           ON destination.id = r.destination_zone_id
+         WHERE pm.pool_id = $1`,
+        [activePool.id],
+      );
+
+      if (ride.shareRide !== true) {
+        const error = new Error(
+          "This ride cannot be accepted while the Tesla has an active pool.",
+        );
+
+        error.statusCode = 409;
+        error.code = "TESLA_BUSY";
+
+        throw error;
+      }
+
+      const compatible =
+        memberResult.rows.length === 0 ||
+        memberResult.rows.every((existingRide) =>
+          areRoutesCompatible({
+            firstRide: existingRide,
+            secondRide: ride,
+          }),
+        );
+
+      if (!compatible) {
+        const error = new Error(
+          "This ride is not compatible with the Tesla's current pool route.",
+        );
+
+        error.statusCode = 409;
+        error.code = "ROUTE_NOT_COMPATIBLE";
+
+        throw error;
+      }
+    } else {
       const newPoolResult = await client.query(
         `INSERT INTO pools (tesla_id, status)
          VALUES ($1, 'ACTIVE')
-         RETURNING id, tesla_id, status, created_at`,
+         RETURNING
+           id,
+           tesla_id,
+           status,
+           created_at`,
         [tesla.id],
       );
 
       activePool = newPoolResult.rows[0];
-    } else {
-      activePool = poolResult.rows[0];
     }
 
     const occupiedResult = await client.query(

@@ -6,15 +6,16 @@ export const calculateDistanceKm = (firstZone, secondZone) => {
   const earthRadiusKm = 6371;
 
   const latitudeDifference = toRadians(
-    secondZone.latitude - firstZone.latitude,
+    Number(secondZone.latitude) - Number(firstZone.latitude),
   );
 
   const longitudeDifference = toRadians(
-    secondZone.longitude - firstZone.longitude,
+    Number(secondZone.longitude) - Number(firstZone.longitude),
   );
 
-  const firstLatitude = toRadians(firstZone.latitude);
-  const secondLatitude = toRadians(secondZone.latitude);
+  const firstLatitude = toRadians(Number(firstZone.latitude));
+
+  const secondLatitude = toRadians(Number(secondZone.latitude));
 
   const a =
     Math.sin(latitudeDifference / 2) ** 2 +
@@ -76,18 +77,29 @@ export const areRoutesCompatible = ({ firstRide, secondRide }) => {
     },
   );
 
-  const MAX_PICKUP_DISTANCE_KM = 3;
-
-  if (pickupDistanceKm > MAX_PICKUP_DISTANCE_KM) {
-    return false;
-  }
+  const destinationDistanceKm = calculateDistanceKm(
+    {
+      latitude: firstRide.destinationLatitude,
+      longitude: firstRide.destinationLongitude,
+    },
+    {
+      latitude: secondRide.destinationLatitude,
+      longitude: secondRide.destinationLongitude,
+    },
+  );
 
   const directionSimilarity = calculateDirectionSimilarity(
     firstRide,
     secondRide,
   );
 
-  const MIN_DIRECTION_SIMILARITY = 0.5;
+  const MAX_PICKUP_DISTANCE_KM = 3;
+  const MAX_DESTINATION_DISTANCE_KM = 3;
+  const MIN_DIRECTION_SIMILARITY = 0.4;
 
-  return directionSimilarity >= MIN_DIRECTION_SIMILARITY;
+  return (
+    pickupDistanceKm <= MAX_PICKUP_DISTANCE_KM &&
+    destinationDistanceKm <= MAX_DESTINATION_DISTANCE_KM &&
+    directionSimilarity >= MIN_DIRECTION_SIMILARITY
+  );
 };
