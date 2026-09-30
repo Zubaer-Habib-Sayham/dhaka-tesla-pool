@@ -2,6 +2,14 @@
 
 Share a seat. Split the fare. Survive Dhaka traffic.
 
+**Live website:** [Dhaka Tesla Pool](https://dhaka-tesla-pool-d563.onrender.com/)
+
+Hosted on Render's free static-site and API plans with Neon PostgreSQL.
+Click **Test the app** for an instant demonstration, or sign up as a passenger
+or driver to use the live database. The free API may take about a minute to wake
+up after inactivity; open the site before recording a live account walkthrough.
+Render deploys from the `codex/free-public-deployment` branch.
+
 A ride-pooling MVP built with PostgreSQL, Express.js, React, and Node.js.
 
 ## Status
