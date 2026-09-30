@@ -381,3 +381,70 @@ export const acceptRideForDriver = async ({ rideId, driverId }) => {
     client.release();
   }
 };
+
+export const updateDriverRideStatus = async ({
+  rideId,
+  driverId,
+  nextStatus,
+}) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const rideResult = await client.query(
+      `SELECT
+         r.id,
+         r.status,
+         r.passenger_id,
+         t.id AS tesla_id
+       FROM rides r
+       JOIN pool_members pm
+         ON pm.ride_id = r.id
+       JOIN pools p
+         ON p.id = pm.pool_id
+       JOIN teslas t
+         ON t.id = p.tesla_id
+       WHERE r.id = $1
+         AND t.driver_id = $2
+       FOR UPDATE`,
+      [rideId, driverId],
+    );
+
+    if (rideResult.rowCount === 0) {
+      const error = new Error("Ride could not be found for this driver.");
+
+      error.statusCode = 404;
+      error.code = "RIDE_NOT_FOUND";
+
+      throw error;
+    }
+
+    const ride = rideResult.rows[0];
+
+    const updatedRideResult = await client.query(
+      `UPDATE rides
+       SET status = $1,
+           updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      [nextStatus, rideId],
+    );
+
+    await client.query(
+      `INSERT INTO ride_status_history
+        (ride_id, from_status, to_status, changed_by)
+       VALUES ($1, $2, $3, $4)`,
+      [rideId, ride.status, nextStatus, driverId],
+    );
+
+    await client.query("COMMIT");
+
+    return updatedRideResult.rows[0];
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+};

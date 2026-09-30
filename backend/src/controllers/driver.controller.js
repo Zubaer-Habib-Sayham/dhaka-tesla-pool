@@ -4,6 +4,9 @@ import {
   setDriverOffline,
   getDriverRequests,
   acceptRide,
+  arriveAtRide,
+  startRide,
+  completeRide,
 } from "../services/driver.service.js";
 
 export const getMe = async (req, res, next) => {
@@ -64,6 +67,51 @@ export const accept = async (req, res, next) => {
     });
 
     res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const arrive = async (req, res, next) => {
+  try {
+    const ride = await arriveAtRide({
+      rideId: req.params.id,
+      driverId: req.user.userId,
+    });
+
+    res.status(200).json({
+      ride,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const start = async (req, res, next) => {
+  try {
+    const ride = await startRide({
+      rideId: req.params.id,
+      driverId: req.user.userId,
+    });
+
+    res.status(200).json({
+      ride,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const complete = async (req, res, next) => {
+  try {
+    const ride = await completeRide({
+      rideId: req.params.id,
+      driverId: req.user.userId,
+    });
+
+    res.status(200).json({
+      ride,
+    });
   } catch (error) {
     next(error);
   }
