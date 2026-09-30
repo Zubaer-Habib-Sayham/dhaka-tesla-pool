@@ -6,6 +6,7 @@ import { errorHandler } from "./middleware/error.middleware.js";
 import authRoutes from "./routes/auth.routes.js";
 import zoneRoutes from "./routes/zone.routes.js";
 import rideRoutes from "./routes/ride.routes.js";
+import driverRoutes from "./routes/driver.routes.js";
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.use("/api/health/database", databaseRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/zones", zoneRoutes);
 app.use("/api/rides", rideRoutes);
+app.use("/api/driver", driverRoutes);
 
 app.use(errorHandler);
 

@@ -1,22 +1,21 @@
 import {
   createRide,
   createRideStatusHistory,
-} from "../repositories/ride.repository.js";
-import { findZoneById } from "../repositories/zone.repository.js";
-import { calculateFare } from "./fare.service.js";
-import {
   findRidesByPassengerId,
   findRideByIdAndPassengerId,
-  updateRideStatus,
-  createStatusHistoryEntry,
+  cancelOwnedRide,
   findRideStatusHistory,
 } from "../repositories/ride.repository.js";
+
+import { findZoneById } from "../repositories/zone.repository.js";
+import { calculateFare } from "./fare.service.js";
 
 export const requestRide = async ({
   passengerId,
   pickupZoneId,
   destinationZoneId,
   requestedSeats,
+  shareRide,
   paymentMethod,
 }) => {
   const pickupZone = await findZoneById(pickupZoneId);
@@ -33,7 +32,7 @@ export const requestRide = async ({
     pickupZone,
     destinationZone,
     requestedSeats,
-    isPooled: false,
+    shareRide,
   });
 
   const ride = await createRide({
@@ -41,6 +40,7 @@ export const requestRide = async ({
     pickupZoneId,
     destinationZoneId,
     requestedSeats,
+    shareRide,
     fareAmount: fare.fareAmount,
     paymentMethod,
   });
@@ -82,33 +82,5 @@ export const getPassengerRide = async (rideId, passengerId) => {
 };
 
 export const cancelPassengerRide = async ({ rideId, passengerId }) => {
-  const ride = await findRideByIdAndPassengerId(rideId, passengerId);
-
-  if (!ride) {
-    const error = new Error("Ride not found.");
-    error.statusCode = 404;
-    error.code = "RIDE_NOT_FOUND";
-    throw error;
-  }
-
-  if (!["REQUESTED", "MATCHED"].includes(ride.status)) {
-    const error = new Error("This ride can no longer be cancelled.");
-
-    error.statusCode = 409;
-    error.code = "RIDE_CANNOT_BE_CANCELLED";
-    throw error;
-  }
-
-  const previousStatus = ride.status;
-
-  const updatedRide = await updateRideStatus(rideId, "CANCELLED");
-
-  await createStatusHistoryEntry({
-    rideId,
-    fromStatus: previousStatus,
-    toStatus: "CANCELLED",
-    changedBy: passengerId,
-  });
-
-  return updatedRide;
+  return cancelOwnedRide({ rideId, passengerId });
 };

@@ -35,7 +35,7 @@ export const calculateFare = ({
   pickupZone,
   destinationZone,
   requestedSeats,
-  isPooled = false,
+  shareRide = true,
 }) => {
   if (pickupZone.id === destinationZone.id) {
     const error = new Error("Pickup and destination cannot be the same zone.");
@@ -52,7 +52,7 @@ export const calculateFare = ({
 
   const subtotal = BASE_FARE + distanceCharge;
 
-  const poolDiscount = isPooled ? POOL_DISCOUNT : 0;
+  const poolDiscount = shareRide ? POOL_DISCOUNT : 0;
 
   const fareAmount = Math.max(BASE_FARE, subtotal - poolDiscount);
 

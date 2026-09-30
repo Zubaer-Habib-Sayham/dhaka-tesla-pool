@@ -1,9 +1,9 @@
 INSERT INTO users (name, email, password_hash, role)
 VALUES
-    ('Jashim', 'jashim@dhakateslapool.test', 'SEED_PASSWORD', 'DRIVER'),
-    ('Nusrat', 'nusrat@dhakateslapool.test', 'SEED_PASSWORD', 'PASSENGER'),
-    ('Rafiq', 'rafiq@dhakateslapool.test', 'SEED_PASSWORD', 'PASSENGER'),
-    ('Shirin', 'shirin@dhakateslapool.test', 'SEED_PASSWORD', 'PASSENGER');
+    ('Jashim', 'jashim@dhakateslapool.test', '$2b$12$ZUSzlXGXxMxP3..TP1XInefvssAdBmSLPqyaJZPpFg.Ldoya0NrLe', 'DRIVER'),
+    ('Nusrat', 'nusrat@dhakateslapool.test', '$2b$12$ZUSzlXGXxMxP3..TP1XInefvssAdBmSLPqyaJZPpFg.Ldoya0NrLe', 'PASSENGER'),
+    ('Rafiq', 'rafiq@dhakateslapool.test', '$2b$12$ZUSzlXGXxMxP3..TP1XInefvssAdBmSLPqyaJZPpFg.Ldoya0NrLe', 'PASSENGER'),
+    ('Shirin', 'shirin@dhakateslapool.test', '$2b$12$ZUSzlXGXxMxP3..TP1XInefvssAdBmSLPqyaJZPpFg.Ldoya0NrLe', 'PASSENGER')
 ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO teslas (driver_id, name, capacity, status)
