@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authenticate } from "../middleware/auth.middleware.js";
+import { authorizeRoles } from "../middleware/role.middleware.js";
 import {
   estimateFare,
   createRideRequest,
@@ -12,12 +13,12 @@ const router = Router();
 
 router.post("/estimate", estimateFare);
 
-router.post("/", authenticate, createRideRequest);
+router.post("/", authenticate, authorizeRoles("PASSENGER"), createRideRequest);
 
-router.get("/", authenticate, getMyRides);
+router.get("/", authenticate, authorizeRoles("PASSENGER"), getMyRides);
 
-router.get("/:id", authenticate, getMyRide);
+router.get("/:id", authenticate, authorizeRoles("PASSENGER"), getMyRide);
 
-router.post("/:id/cancel", authenticate, cancelRide);
+router.post("/:id/cancel", authenticate, authorizeRoles("PASSENGER"), cancelRide);
 
 export default router;

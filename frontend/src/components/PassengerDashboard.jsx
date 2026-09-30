@@ -1,151 +1,47 @@
 import { useEffect, useState } from "react";
 import { getMyRides } from "../services/api";
-import { getCurrentUser, logout } from "../services/auth";
-
-const formatStatus = (status) => {
-  return status
-    .replaceAll("_", " ")
-    .toLowerCase()
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-};
-
-const formatDate = (date) => {
-  return new Date(date).toLocaleString("en-BD", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-};
-
+import { getCurrentUser } from "../services/auth";
+const formatStatus = (status) => ({ REQUESTED: "Finding a ride", MATCHED: "Rickshaw on the way", DRIVER_ARRIVED: "Driver arrived", STARTED: "In progress", COMPLETED: "Completed", CANCELLED: "Cancelled" })[status] || status;
+const date = (value) => new Date(value).toLocaleString("en-BD", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Dhaka" });
 function PassengerDashboard({ onLogout, onRequestRide, onRideClick }) {
   const user = getCurrentUser();
-
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
-    const loadRides = async () => {
-      try {
-        const result = await getMyRides();
-        setRides(result.rides || []);
-      } catch (error) {
-        setError(error.message);
-      } finally {
-        setLoading(false);
-      }
+    let disposed = false;
+    let fetching = false;
+    const refresh = async () => {
+      if (fetching) return;
+      fetching = true;
+      try { const result = await getMyRides(); if (!disposed) { setRides(result.rides || []); setError(""); } }
+      catch (error) { if (!disposed) setError(error.message); }
+      finally { fetching = false; if (!disposed) setLoading(false); }
     };
-
-    loadRides();
-  }, []);
-
-  const handleLogout = () => {
-    logout();
-    onLogout();
-  };
-
-  return (
-    <div className="dashboard">
-      <header className="dashboard-header">
-        <div>
-          <p className="brand">Dhaka Tesla Pool</p>
-          <p className="tagline">
-            Share a seat. Split the fare. Survive Dhaka traffic.
-          </p>
-        </div>
-
-        <button
-          className="secondary-button"
-          type="button"
-          onClick={handleLogout}>
-          Log out
-        </button>
-      </header>
-
-      <main className="dashboard-content">
-        <section className="welcome-section">
-          <p className="eyebrow">Passenger dashboard</p>
-          <h1>Good to see you, {user?.name}.</h1>
-          <p>Find a Tesla, share the ride, and keep track of your trips.</p>
-
-          <button
-            className="primary-button"
-            type="button"
-            onClick={onRequestRide}>
-            Request a ride
-          </button>
+    refresh(); const timer = setInterval(refresh, 5000);
+    return () => { disposed = true; clearInterval(timer); };
+  }, [retry]);
+  const activeRides = rides.filter((r) => !["COMPLETED", "CANCELLED"].includes(r.status));
+  const previous = rides.filter((r) => ["COMPLETED", "CANCELLED"].includes(r.status));
+  const cards = (items) => <div className="ride-list">{items.map((ride) => <button className="ride-card" key={ride.id} onClick={() => onRideClick(ride)}>
+    <div className="ride-route"><div><span>Pickup</span><strong>{ride.pickup_zone_name}</strong></div><div className="route-arrow">→</div><div><span>Drop-off</span><strong>{ride.destination_zone_name}</strong></div></div>
+    <div className="ride-details"><span>{ride.requested_seats} seat{Number(ride.requested_seats) === 1 ? "" : "s"}</span><strong>৳{ride.fare_amount}</strong><span>{date(ride.created_at)}</span>{ride.pool_id && <span>Pool #{ride.pool_id}</span>}</div>
+    <div className="ride-footer"><span className={`status status-${ride.status.toLowerCase()}`}>{formatStatus(ride.status)}</span><span>View trip ↗</span></div>
+  </button>)}</div>;
+  return <div className="dashboard">
+    <header className="dashboard-header"><div className="brand"><span className="brand-mark">dtp<span>↗</span></span>Dhaka Tesla Pool</div><div className="header-actions"><div className="user-chip"><span className="avatar">{user?.name?.[0]}</span><div>{user?.name}<small>Passenger account</small></div></div><button className="secondary-button" onClick={onLogout}>Log out</button></div></header>
+    <main className="dashboard-content">
+      <div className="dashboard-title"><div><p className="eyebrow">PASSENGER DASHBOARD / DHAKA</p><h1>Let’s get you there, {user?.name?.split(" ")[0]}.</h1><p>Your rides, all in one place.</p></div><button className="primary-button" disabled={loading || Boolean(error)} onClick={activeRides.length ? () => onRideClick(activeRides[0]) : onRequestRide}>{activeRides.length ? "Track your ride ↗" : "Request a ride ↗"}</button></div>
+      {error && <div className="ride-error" role="alert"><p>{error}</p><button className="text-button" onClick={() => setRetry((n) => n + 1)}>Retry</button></div>}
+      {loading && <div className="state-card">Loading your rides…</div>}
+      {!loading && !error && <>
+        <section className="rides-section"><div className="section-heading"><div><p className="eyebrow">RIGHT NOW</p><h2>Your active ride <span className="count-badge">{activeRides.length}</span></h2></div><span className="pool-label">Updates automatically</span></div>
+          {activeRides.length ? cards(activeRides) : <div className="welcome-section"><div><h2>A seat with your name on it.</h2><p>Choose your pickup, destination, and seats. We’ll take it from there.</p></div><button className="primary-button" onClick={onRequestRide}>Find a rickshaw →</button></div>}
         </section>
-
-        <section className="rides-section">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Activity</p>
-              <h2>Your rides</h2>
-            </div>
-          </div>
-
-          {loading && (
-            <div className="state-card">
-              <p>Loading your rides...</p>
-            </div>
-          )}
-
-          {!loading && error && (
-            <div className="state-card error-card">
-              <p>{error}</p>
-            </div>
-          )}
-
-          {!loading && !error && rides.length === 0 && (
-            <div className="state-card">
-              <h3>No rides yet</h3>
-              <p>
-                Your completed, active, and cancelled rides will appear here.
-              </p>
-            </div>
-          )}
-
-          {!loading && !error && rides.length > 0 && (
-            <div className="ride-list">
-              {rides.map((ride) => (
-                <button
-                  className="ride-card"
-                  key={ride.id}
-                  type="button"
-                  onClick={() => onRideClick(ride)}>
-                  <div className="ride-route">
-                    <div>
-                      <span>Pickup</span>
-                      <strong>{ride.pickup_zone_name}</strong>
-                    </div>
-
-                    <div className="route-arrow">→</div>
-
-                    <div>
-                      <span>Destination</span>
-                      <strong>{ride.destination_zone_name}</strong>
-                    </div>
-                  </div>
-
-                  <div className="ride-details">
-                    <span>{ride.requested_seats} seat(s)</span>
-                    <span>৳{ride.fare_amount}</span>
-                    <span>{formatDate(ride.created_at)}</span>
-                  </div>
-
-                  <div className="ride-footer">
-                    <span
-                      className={`status status-${ride.status.toLowerCase()}`}>
-                      {formatStatus(ride.status)}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-      </main>
-    </div>
-  );
+        <section className="history-section"><div className="section-heading"><div><p className="eyebrow">YOUR ROAD SO FAR</p><h2>Ride history</h2></div><span className="pool-label">{previous.length} trips</span></div>{previous.length ? cards(previous) : <div className="empty-state"><span className="empty-symbol">↗</span><h3>Your story starts here</h3><p>Your completed and cancelled rides will appear here.</p></div>}</section>
+      </>}
+    </main>
+  </div>;
 }
-
 export default PassengerDashboard;

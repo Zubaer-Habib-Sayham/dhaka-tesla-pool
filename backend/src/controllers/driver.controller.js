@@ -7,7 +7,15 @@ import {
   arriveAtRide,
   startRide,
   completeRide,
+  getDriverRides,
 } from "../services/driver.service.js";
+
+export const getRides = async (req, res, next) => {
+  try {
+    const rides = await getDriverRides(req.user.userId);
+    res.status(200).json({ rides });
+  } catch (error) { next(error); }
+};
 
 export const getMe = async (req, res, next) => {
   try {

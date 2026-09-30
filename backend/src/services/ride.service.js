@@ -3,14 +3,12 @@ import {
   createRideStatusHistory,
   findRidesByPassengerId,
   findRideByIdAndPassengerId,
-  updateRideStatus,
-  createStatusHistoryEntry,
+  cancelOwnedRide,
   findRideStatusHistory,
 } from "../repositories/ride.repository.js";
 
 import { findZoneById } from "../repositories/zone.repository.js";
 import { calculateFare } from "./fare.service.js";
-import { validateRideTransition } from "./ride-state.service.js";
 
 export const requestRide = async ({
   passengerId,
@@ -84,28 +82,5 @@ export const getPassengerRide = async (rideId, passengerId) => {
 };
 
 export const cancelPassengerRide = async ({ rideId, passengerId }) => {
-  const ride = await findRideByIdAndPassengerId(rideId, passengerId);
-
-  if (!ride) {
-    const error = new Error("Ride not found.");
-    error.statusCode = 404;
-    error.code = "RIDE_NOT_FOUND";
-    throw error;
-  }
-
-  validateRideTransition(ride.status, "CANCELLED");
-
-  await updateRideStatus(rideId, "CANCELLED");
-
-  await createStatusHistoryEntry({
-    rideId,
-    fromStatus: ride.status,
-    toStatus: "CANCELLED",
-    changedBy: passengerId,
-  });
-
-  return {
-    ...ride,
-    status: "CANCELLED",
-  };
+  return cancelOwnedRide({ rideId, passengerId });
 };

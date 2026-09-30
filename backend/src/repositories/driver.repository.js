@@ -1,5 +1,6 @@
 import pool from "../config/database.js";
 import { areRoutesCompatible } from "../services/route-matching.service.js";
+import { validateRideTransition } from "../services/ride-state.service.js";
 
 export const findDriverWithTesla = async (driverId) => {
   const result = await pool.query(
@@ -33,6 +34,52 @@ export const updateTeslaStatus = async (driverId, status) => {
   );
 
   return result.rows[0] || null;
+};
+
+export const findRidesForDriver = async (driverId) => {
+  const result = await pool.query(
+    `SELECT r.*, u.name AS passenger_name,
+      pickup.name AS pickup_zone_name, destination.name AS destination_zone_name,
+      p.id AS pool_id, p.status AS pool_status, t.name AS tesla_name
+     FROM rides r
+     JOIN users u ON u.id = r.passenger_id
+     JOIN zones pickup ON pickup.id = r.pickup_zone_id
+     JOIN zones destination ON destination.id = r.destination_zone_id
+     JOIN pool_members pm ON pm.ride_id = r.id
+     JOIN pools p ON p.id = pm.pool_id
+     JOIN teslas t ON t.id = p.tesla_id
+     WHERE t.driver_id = $1
+     ORDER BY r.updated_at DESC, r.id DESC`,
+    [driverId],
+  );
+  return result.rows;
+};
+
+export const setTeslaAvailability = async (driverId, status) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const vehicle = await client.query("SELECT id FROM teslas WHERE driver_id = $1 FOR UPDATE", [driverId]);
+    if (!vehicle.rows[0]) {
+      const error = new Error("Driver or rickshaw could not be found.");
+      error.statusCode = 404; error.code = "DRIVER_NOT_FOUND"; throw error;
+    }
+    const assigned = await client.query(
+      `SELECT r.id FROM rides r
+       JOIN pool_members pm ON pm.ride_id = r.id
+       JOIN pools p ON p.id = pm.pool_id
+       WHERE p.tesla_id = $1 AND r.status IN ('MATCHED', 'DRIVER_ARRIVED', 'STARTED') LIMIT 1`,
+      [vehicle.rows[0].id],
+    );
+    if (status === "OFFLINE" && assigned.rowCount > 0) {
+      const error = new Error("Complete your active rides before going offline.");
+      error.statusCode = 409; error.code = "ACTIVE_RIDES_EXIST"; throw error;
+    }
+    await client.query("UPDATE teslas SET status = $1, updated_at = NOW() WHERE driver_id = $2", [status, driverId]);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK"); throw error;
+  } finally { client.release(); }
 };
 
 export const findRequestedRides = async () => {
@@ -213,7 +260,7 @@ export const acceptRideForDriver = async ({ rideId, driverId }) => {
        JOIN zones destination
          ON destination.id = r.destination_zone_id
        WHERE r.id = $1
-       FOR UPDATE`,
+       FOR UPDATE OF r`,
       [rideId],
     );
 
@@ -272,7 +319,8 @@ export const acceptRideForDriver = async ({ rideId, driverId }) => {
            ON pickup.id = r.pickup_zone_id
          JOIN zones destination
            ON destination.id = r.destination_zone_id
-         WHERE pm.pool_id = $1`,
+         WHERE pm.pool_id = $1
+           AND r.status IN ('MATCHED', 'DRIVER_ARRIVED', 'STARTED')`,
         [activePool.id],
       );
 
@@ -323,8 +371,10 @@ export const acceptRideForDriver = async ({ rideId, driverId }) => {
 
     const occupiedResult = await client.query(
       `SELECT COALESCE(SUM(seats), 0) AS occupied_seats
-       FROM pool_members
-       WHERE pool_id = $1`,
+       FROM pool_members pm
+       JOIN rides r ON r.id = pm.ride_id
+       WHERE pm.pool_id = $1
+         AND r.status IN ('MATCHED', 'DRIVER_ARRIVED', 'STARTED')`,
       [activePool.id],
     );
 
@@ -392,12 +442,25 @@ export const updateDriverRideStatus = async ({
   try {
     await client.query("BEGIN");
 
+    // Lock the vehicle first, matching accept/cancel/availability lock order.
+    const vehicle = await client.query(
+      "SELECT id, status FROM teslas WHERE driver_id = $1 FOR UPDATE",
+      [driverId],
+    );
+    if (!vehicle.rows[0] || vehicle.rows[0].status !== "ONLINE") {
+      const error = new Error("Rickshaw must be online to manage rides.");
+      error.statusCode = 409;
+      error.code = "TESLA_OFFLINE";
+      throw error;
+    }
+
     const rideResult = await client.query(
       `SELECT
          r.id,
          r.status,
          r.passenger_id,
-         t.id AS tesla_id
+         t.id AS tesla_id,
+         p.id AS pool_id
        FROM rides r
        JOIN pool_members pm
          ON pm.ride_id = r.id
@@ -407,7 +470,7 @@ export const updateDriverRideStatus = async ({
          ON t.id = p.tesla_id
        WHERE r.id = $1
          AND t.driver_id = $2
-       FOR UPDATE`,
+       FOR UPDATE OF r`,
       [rideId, driverId],
     );
 
@@ -421,6 +484,9 @@ export const updateDriverRideStatus = async ({
     }
 
     const ride = rideResult.rows[0];
+
+    // Validate after acquiring the row lock so concurrent clicks cannot skip stages.
+    validateRideTransition(ride.status, nextStatus);
 
     const updatedRideResult = await client.query(
       `UPDATE rides
@@ -437,6 +503,17 @@ export const updateDriverRideStatus = async ({
        VALUES ($1, $2, $3, $4)`,
       [rideId, ride.status, nextStatus, driverId],
     );
+
+    if (nextStatus === "COMPLETED") {
+      await client.query(
+        `UPDATE pools p SET status = 'COMPLETED', updated_at = NOW()
+         WHERE p.id = $1 AND NOT EXISTS (
+           SELECT 1 FROM pool_members pm JOIN rides r ON r.id = pm.ride_id
+           WHERE pm.pool_id = p.id AND r.status IN ('MATCHED', 'DRIVER_ARRIVED', 'STARTED')
+         )`,
+        [ride.pool_id],
+      );
+    }
 
     await client.query("COMMIT");
 

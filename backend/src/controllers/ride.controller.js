@@ -29,7 +29,7 @@ export const estimateFare = async (req, res, next) => {
       pickupZone,
       destinationZone,
       requestedSeats: data.requestedSeats,
-      isPooled: false,
+      shareRide: data.shareRide,
     });
 
     res.status(200).json({

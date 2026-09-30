@@ -9,6 +9,7 @@ function RideRequest({ onBack, onRideCreated }) {
   const [destinationZoneId, setDestinationZoneId] = useState("");
   const [requestedSeats, setRequestedSeats] = useState("1");
   const [paymentMethod, setPaymentMethod] = useState("CASH");
+  const [shareRide, setShareRide] = useState(true);
 
   const [fare, setFare] = useState(null);
 
@@ -70,6 +71,7 @@ function RideRequest({ onBack, onRideCreated }) {
         pickupZoneId,
         destinationZoneId,
         requestedSeats,
+        shareRide,
       });
 
       setFare(result.fare);
@@ -101,9 +103,13 @@ function RideRequest({ onBack, onRideCreated }) {
         destinationZoneId,
         requestedSeats,
         paymentMethod,
+        shareRide,
       });
 
-      onRideCreated(result.ride);
+      onRideCreated({ ...result.ride,
+        pickup_zone_name: result.pickupZone?.name || zones.find((z) => String(z.id) === String(pickupZoneId))?.name,
+        destination_zone_name: result.destinationZone?.name || zones.find((z) => String(z.id) === String(destinationZoneId))?.name,
+      });
     } catch (error) {
       setError(error.message);
     } finally {
@@ -151,7 +157,7 @@ function RideRequest({ onBack, onRideCreated }) {
                     setPickupZoneId(value);
                     setFare(null);
                   }}
-                  disabled={loadingZones}
+                  disabled={loadingZones || estimating || submitting}
                 />
               </div>
 
@@ -171,7 +177,7 @@ function RideRequest({ onBack, onRideCreated }) {
                     setDestinationZoneId(value);
                     setFare(null);
                   }}
-                  disabled={loadingZones}
+                  disabled={loadingZones || estimating || submitting}
                 />
               </div>
             </div>
@@ -182,6 +188,7 @@ function RideRequest({ onBack, onRideCreated }) {
                 value={requestedSeats}
                 options={seatOptions}
                 placeholder="Choose seats"
+                disabled={estimating || submitting}
                 onChange={(value) => {
                   setRequestedSeats(value);
                   setFare(null);
@@ -193,12 +200,15 @@ function RideRequest({ onBack, onRideCreated }) {
                 value={paymentMethod}
                 options={paymentOptions}
                 placeholder="Choose payment"
+                disabled={submitting}
                 onChange={setPaymentMethod}
               />
             </div>
 
+            <div className="payment-choice"><label><input type="checkbox" checked={shareRide} disabled={estimating || submitting} onChange={(event) => { setShareRide(event.target.checked); setFare(null); }} />Share my rickshaw</label><p>Save ৳20 by choosing a shared ride. Uncheck for a private ride.</p></div>
+
             {error && (
-              <div className="ride-error">
+              <div className="ride-error" role="alert">
                 <span>!</span>
                 <p>{error}</p>
               </div>
@@ -208,7 +218,7 @@ function RideRequest({ onBack, onRideCreated }) {
               className="estimate-button"
               type="button"
               onClick={handleEstimate}
-              disabled={estimating || loadingZones}>
+              disabled={estimating || loadingZones || submitting}>
               {estimating ? "Calculating..." : "Calculate estimated fare"}
             </button>
           </section>
@@ -272,8 +282,7 @@ function RideRequest({ onBack, onRideCreated }) {
                 </button>
 
                 <p className="fare-note">
-                  Your final fare is calculated by the server when the ride is
-                  created.
+                  Your fare is confirmed when you request the ride.
                 </p>
               </>
             )}

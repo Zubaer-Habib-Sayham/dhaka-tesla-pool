@@ -1,4 +1,59 @@
 import pool from "../config/database.js";
+import { validateRideTransition } from "../services/ride-state.service.js";
+
+export const cancelOwnedRide = async ({ rideId, passengerId }) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Ownership is included even in the lock lookup; strangers cannot affect a pool.
+    const assigned = await client.query(
+      `SELECT t.id, p.id AS pool_id FROM teslas t
+       JOIN pools p ON p.tesla_id = t.id
+       JOIN pool_members pm ON pm.pool_id = p.id
+       JOIN rides r ON r.id = pm.ride_id
+       WHERE r.id = $1 AND r.passenger_id = $2 FOR UPDATE OF t`,
+      [rideId, passengerId],
+    );
+    const result = await client.query("SELECT * FROM rides WHERE id = $1 AND passenger_id = $2 FOR UPDATE", [rideId, passengerId]);
+    const ride = result.rows[0];
+    if (!ride) {
+      const error = new Error("Ride not found.");
+      error.statusCode = 404; error.code = "RIDE_NOT_FOUND"; throw error;
+    }
+    // A concurrent acceptance may have attached a previously unassigned ride.
+    // Retry rather than acquiring the vehicle in reverse lock order.
+    if (!assigned.rowCount) {
+      const membership = await client.query("SELECT id FROM pool_members WHERE ride_id = $1", [rideId]);
+      if (membership.rowCount) {
+        const error = new Error("Ride was just accepted. Please try cancelling again.");
+        error.statusCode = 409; error.code = "RIDE_CHANGED"; throw error;
+      }
+    }
+    validateRideTransition(ride.status, "CANCELLED");
+    const updated = await client.query("UPDATE rides SET status = 'CANCELLED', updated_at = NOW() WHERE id = $1 RETURNING *", [rideId]);
+    await client.query(
+      "INSERT INTO ride_status_history (ride_id, from_status, to_status, changed_by) VALUES ($1, $2, 'CANCELLED', $3)",
+      [rideId, ride.status, passengerId],
+    );
+    if (assigned.rowCount) {
+      await client.query(
+        `UPDATE pools p SET status = CASE WHEN EXISTS (
+           SELECT 1 FROM pool_members pm JOIN rides r ON r.id = pm.ride_id
+           WHERE pm.pool_id = p.id AND r.status = 'COMPLETED'
+         ) THEN 'COMPLETED' ELSE 'CANCELLED' END, updated_at = NOW()
+         WHERE p.id = $1 AND NOT EXISTS (
+           SELECT 1 FROM pool_members pm JOIN rides r ON r.id = pm.ride_id
+           WHERE pm.pool_id = p.id AND r.status IN ('MATCHED', 'DRIVER_ARRIVED', 'STARTED')
+         )`,
+        [assigned.rows[0].pool_id],
+      );
+    }
+    await client.query("COMMIT");
+    return updated.rows[0];
+  } catch (error) {
+    await client.query("ROLLBACK"); throw error;
+  } finally { client.release(); }
+};
 
 export const createRide = async ({
   passengerId,
@@ -124,7 +179,8 @@ export const findRideByIdAndPassengerId = async (rideId, passengerId) => {
       p.id AS pool_id,
       p.status AS pool_status,
       t.id AS tesla_id,
-      t.name AS tesla_name
+      t.name AS tesla_name,
+      driver.name AS driver_name
     FROM rides r
     JOIN zones pickup
       ON pickup.id = r.pickup_zone_id
@@ -136,6 +192,8 @@ export const findRideByIdAndPassengerId = async (rideId, passengerId) => {
       ON p.id = pm.pool_id
     LEFT JOIN teslas t
       ON t.id = p.tesla_id
+    LEFT JOIN users driver
+      ON driver.id = t.driver_id
     WHERE r.id = $1
       AND r.passenger_id = $2`,
     [rideId, passengerId],
